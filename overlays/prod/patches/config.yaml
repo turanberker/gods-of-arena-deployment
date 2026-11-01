@@ -1,0 +1,12 @@
+# Üretim alan adları. goa.example.com yer tutucudur; gerçek alan adı belli olunca değiştirin
+# (patches/routes.yaml ve frontend imajlarındaki VITE_BATTLE_WS_URL ile birlikte).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: goa-config
+data:
+  # Go WebSocket Origin kontrolü: tarayıcının açtığı adresler.
+  # TLS kurulunca https:// yapın.
+  ALLOWED_ORIGINS: http://goa.example.com,http://admin.goa.example.com
+  # TLS (HTTPS) kurulunca "true" yapın; HTTP'de true olursa giriş çerezi gönderilmez.
+  GOA_COOKIE_SECURE: "false"

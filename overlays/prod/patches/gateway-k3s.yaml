@@ -1,0 +1,16 @@
+# k3s + Traefik: GatewayClass "traefik". Traefik'te Gateway dinleyici portu bir entryPoint'in
+# kapsayıcı içi portuyla eşleşmelidir: "web" entryPoint'i 8000'de dinler, dışarıya 80 olarak açılır
+# (k3s ServiceLB, sunucunun 80 portu). Bu yüzden 80 değil 8000 yazılır.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: goa
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 8000
+      allowedRoutes:
+        namespaces:
+          from: Same

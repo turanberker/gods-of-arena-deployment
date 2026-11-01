@@ -1,0 +1,16 @@
+# Dış trafik Gateway API ile girer (Ingress yerine; uygulamadan bağımsız standart).
+# gatewayClassName kümenizdeki Gateway denetleyicisine göre değişir:
+#   Envoy Gateway: eg · NGINX Gateway Fabric: nginx · Traefik: traefik · Istio: istio
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: goa
+spec:
+  gatewayClassName: eg
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
