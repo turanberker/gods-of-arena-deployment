@@ -17,17 +17,45 @@ overlays/
 └── prod/                  # üretim: Secret, alan adları, imaj etiketleri
     ├── kustomization.yaml
     ├── secrets.env.example  # → secrets.env (git'e girmez)
-    └── patches/             # config.yaml (Origin, çerez), routes.yaml (alan adları)
+    └── patches/             # config.yaml (Origin, çerez), routes.yaml (alan adları), gateway-k3s.yaml
+k3s/traefik-config.yaml    # k3s Traefik'te Gateway API'yi açar (sunucuya bir kez kopyalanır)
 .github/workflows/validate.yml  # PR'da kustomize build + kubeconform
 ```
 
-## Ön koşullar
+## Hedef: tek VM üzerinde k3s
 
-- Kubernetes 1.29+ ve `metrics-server` (HPA için).
-- Bir Gateway API denetleyicisi. `base/apps/gateway/gateway.yaml` içindeki `gatewayClassName` (varsayılan `eg`, Envoy Gateway) kümeye göre değiştirilir.
-- Kalıcı disk için varsayılan bir StorageClass (PostgreSQL 5Gi, Redis 1Gi).
+`overlays/prod` tek bir sunucuda çalışan [k3s](https://k3s.io) için ayarlıdır. k3s'in hazır getirdikleri kullanılır:
 
-Hedef küme (tek VM üzerinde k3s mi, yönetilen küme mi) henüz seçilmedi; seçilince gerekirse ayrı bir overlay ya da yama eklenir.
+| İhtiyaç | k3s'te karşılığı |
+|---|---|
+| Gateway API denetleyicisi | Hazır Traefik (`k3s/traefik-config.yaml` ile Gateway desteği açılır), GatewayClass `traefik` |
+| Dış IP / 80 portu | ServiceLB: Traefik sunucunun 80 (ve 443) portunu dinler |
+| Kalıcı disk | `local-path` StorageClass (veri sunucunun diskinde, `/var/lib/rancher/k3s/storage`) |
+| HPA ölçümleri | Hazır `metrics-server` |
+
+`base/` küme bağımsız kalır (`gatewayClassName: eg`); k3s'e özel tek fark `overlays/prod/patches/gateway-k3s.yaml`'dadır. Traefik'te Gateway dinleyici portu entryPoint'in kapsayıcı içi portuyla eşleşmek zorunda olduğu için orada `8000` yazar; dışarıdan yine 80'den girilir.
+
+**Sunucu boyutu:** Uygulamaların toplam istekleri (HPA en az 2 kopya ile) yaklaşık 2,8 vCPU ve 4,7 GiB bellektir; k3s'in kendisiyle birlikte en az **4 vCPU / 8 GB** önerilir. Daha küçük sunucuda HPA `minReplicas` değerleri overlay'de 1'e çekilebilir (kesintisiz güncelleme `maxSurge: 1` ile yine sürer).
+
+### Sunucu kurulumu (bir kez)
+
+> Bu adımlar henüz gerçek bir sunucuda denenmedi.
+
+```bash
+# 1. k3s
+curl -sfL https://get.k3s.io | sh -
+sudo kubectl get nodes
+
+# 2. Traefik'te Gateway API'yi aç (k3s klasördeki dosyayı kendisi uygular)
+sudo cp k3s/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+sudo kubectl -n kube-system rollout status deploy/traefik
+
+# 3. Kontrol: Gateway API CRD'leri ve GatewayClass
+sudo kubectl get crd gateways.gateway.networking.k8s.io httproutes.gateway.networking.k8s.io
+sudo kubectl get gatewayclass
+```
+
+CRD'ler yoksa Gateway API'nin standart CRD'leri [gateway-api sürümlerinden](https://github.com/kubernetes-sigs/gateway-api/releases) (`standard-install.yaml`) kurulur. Sunucuda 80 ve 443 portları güvenlik duvarında açık olmalıdır.
 
 ## İmajlar
 
@@ -89,7 +117,7 @@ Uygulamadan önce kontrol için: `kubectl kustomize overlays/prod | less`.
 2. `overlays/prod/patches/config.yaml`: `ALLOWED_ORIGINS`.
 3. gods-of-arena reposunda `WEB_BUILD_ARGS` içindeki `VITE_BATTLE_WS_URL`.
 
-TLS henüz yok (Gateway yalnızca HTTP 80 dinliyor). Sertifika yöntemi küme seçimine bağlıdır (ör. cert-manager + Let's Encrypt). TLS gelince: Gateway'e HTTPS dinleyicisi, `ALLOWED_ORIGINS` için `https://`, `GOA_COOKIE_SECURE: "true"` ve `VITE_BATTLE_WS_URL` için `wss://`.
+TLS henüz yok (Gateway yalnızca HTTP 80 dinliyor). Önerilen yol cert-manager + Let's Encrypt; ayrı bir iş olarak eklenecek. TLS gelince: Gateway'e HTTPS dinleyicisi (Traefik'te `websecure` entryPoint'i, kapsayıcı içi port 8443), `ALLOWED_ORIGINS` için `https://`, `GOA_COOKIE_SECURE: "true"` ve `VITE_BATTLE_WS_URL` için `wss://`.
 
 ## Secret yönetimi
 
@@ -121,9 +149,9 @@ TLS henüz yok (Gateway yalnızca HTTP 80 dinliyor). Sertifika yöntemi küme se
 
 ## Otomatik deploy (öneri, henüz kurulmadı)
 
-İki yol var; seçim küme türüne ve SSH anahtarının gelmesine bağlı:
+Hedef tek VM + k3s olduğu için iki yol var; SSH anahtarı gelince netleşir:
 
-1. **CI'dan SSH ile apply** (Tennis League'deki `appleboy/ssh-action` yaklaşımı): gods-of-arena'daki Imajlar workflow'una `needs: build-push` ile bir deploy işi eklenir. İş sunucuya SSH ile bağlanır, bu repoyu çeker, imaj etiketini yeni `sha-<commit>` yapar ve `kubectl apply -k overlays/prod` çalıştırır. Gerekenler: `SSH_HOST`, `SSH_USER`, `SSH_KEY` secret'ları ve sunucuda `kubectl` erişimi. Tek VM için en az parçalı yol budur.
+1. **CI'dan SSH ile apply** (Tennis League'deki `appleboy/ssh-action` yaklaşımı): gods-of-arena'daki Imajlar workflow'una `needs: build-push` ile bir deploy işi eklenir. İş sunucuya SSH ile bağlanır, bu repoyu çeker, imaj etiketini yeni `sha-<commit>` yapar ve `kubectl apply -k overlays/prod` çalıştırır. Gerekenler: `SSH_HOST`, `SSH_USER`, `SSH_KEY` secret'ları ve sunucuda `kubectl` erişimi (k3s'te `/etc/rancher/k3s/k3s.yaml`). Tek VM için en az parçalı yol budur.
 2. **Argo CD (GitOps):** Kümeye Argo CD kurulur, bu repoyu izler. CI yeni etiketi bu repoya commit'ler (gods-of-arena'dan bu repoya yazma yetkili bir token gerekir), Argo CD kümeyi eşitler. Geçmiş ve geri alma Git'te tutulur, ama kümede ek bir bileşen ve Secret'lar için Sealed Secrets/SOPS gerekir.
 
 Önerim: önce 1 ile başlamak, ortam büyüyünce 2'ye geçmek.

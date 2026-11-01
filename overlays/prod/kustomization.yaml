@@ -1,4 +1,5 @@
-# Üretim ortamı. Kurulum:
+# Üretim ortamı: tek VM üzerinde k3s (Traefik Gateway, local-path disk). Kurulum: README.md
+# Kısaca:
 #   cp overlays/prod/secrets.env.example overlays/prod/secrets.env   # gerçek değerleri yazın (git'e girmez)
 #   kubectl apply -k overlays/prod
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -20,6 +21,8 @@ patches:
   - path: patches/config.yaml
   # Gateway yönlendirmelerinin alan adları.
   - path: patches/routes.yaml
+  # k3s Traefik Gateway sınıfı ve dinleyici portu.
+  - path: patches/gateway-k3s.yaml
 
 # Yayınlanan sürüm. "latest" her zaman main'in son derlemesidir; geri alınabilir ve tekrarlanabilir
 # deploy için CI'ın ürettiği sabit etiket kullanılması önerilir, örn.:

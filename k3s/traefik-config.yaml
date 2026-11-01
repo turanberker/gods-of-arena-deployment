@@ -1,0 +1,14 @@
+# k3s'in hazır Traefik'inde Gateway API desteğini açar. Kustomize'ın parçası değildir;
+# sunucuda k3s'in otomatik uyguladığı klasöre kopyalanır:
+#   sudo cp k3s/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+# k3s dosyayı görür ve Traefik'i bu değerlerle yeniden kurar. GatewayClass adı: traefik.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    providers:
+      kubernetesGateway:
+        enabled: true
