@@ -1,0 +1,44 @@
+# Her PR'da ve main'e push'ta manifestleri doğrular: kustomize build + kubeconform şema kontrolü.
+# Küme erişimi gerekmez; secrets.env yerine örnek dosya kullanılır.
+name: Dogrula
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  KUSTOMIZE_VERSION: v5.4.3
+  KUBECONFORM_VERSION: v0.6.7
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        overlay: [overlays/prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Araçları kur
+        run: |
+          go install sigs.k8s.io/kustomize/kustomize/v5@${KUSTOMIZE_VERSION}
+          go install github.com/yannh/kubeconform/cmd/kubeconform@${KUBECONFORM_VERSION}
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: kustomize build
+        run: |
+          cp "${{ matrix.overlay }}/secrets.env.example" "${{ matrix.overlay }}/secrets.env"
+          kustomize build "${{ matrix.overlay }}" > rendered.yaml
+
+      # Gateway ve HTTPRoute CRD olduğu için çekirdek şemada yoktur, atlanır.
+      - name: kubeconform
+        run: kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0 rendered.yaml

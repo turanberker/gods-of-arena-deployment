@@ -1,0 +1,83 @@
+# Oyuncu arayüzü goa.local, admin arayüzü admin.goa.local adresinden açılır.
+# Servisler her iki adreste de /gw/<önek> altında yayınlanır ve önek kaldırılarak iletilir
+# (/gw/heroes/x → heroes:/heroes/x). /gw gerekli, çünkü /heroes ve /inventory aynı zamanda
+# arayüz sayfalarıdır. Tarayıcı için aynı köken olduğundan CORS gerekmez.
+# /internal/** uçları dışarı açılmaz.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: goa-api
+spec:
+  parentRefs:
+    - name: goa
+  hostnames:
+    - goa.local
+    - admin.goa.local
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: /gw/api }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /api }
+      backendRefs:
+        - { name: auth, port: 9001 }
+    - matches:
+        - path: { type: PathPrefix, value: /gw/heroes }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /heroes }
+      backendRefs:
+        - { name: heroes, port: 9002 }
+    - matches:
+        - path: { type: PathPrefix, value: /gw/crafting }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /crafting }
+      backendRefs:
+        - { name: crafting, port: 9003 }
+    - matches:
+        - path: { type: PathPrefix, value: /gw/inventory }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /inventory }
+      backendRefs:
+        - { name: inventory, port: 9004 }
+    # REST ve WebSocket (/gw/battle/ws/matches/{id}).
+    - matches:
+        - path: { type: PathPrefix, value: /gw/battle }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /battle }
+      backendRefs:
+        - { name: battle, port: 9005 }
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: goa-web
+spec:
+  parentRefs:
+    - name: goa
+  hostnames:
+    - goa.local
+  rules:
+    - backendRefs:
+        - { name: web, port: 80 }
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: goa-admin
+spec:
+  parentRefs:
+    - name: goa
+  hostnames:
+    - admin.goa.local
+  rules:
+    - backendRefs:
+        - { name: admin, port: 80 }

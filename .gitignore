@@ -1,0 +1,3 @@
+# Gerçek parolalar git'e girmez; her overlay'de secrets.env.example'dan kopyalanır.
+secrets.env
+*.secrets.env

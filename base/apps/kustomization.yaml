@@ -1,0 +1,34 @@
+# Uygulamalar: her biri kendi klasöründe (Service, Deployment, HPA, PDB).
+# Java servisleri ve iki frontend çok kopyalıdır (HPA 2..N); Go savaş sunucusu da çok kopyalıdır (Redis ile koordine).
+# (bkz. battle/battle.yaml).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - auth
+  - heroes
+  - crafting
+  - inventory
+  - battle
+  - web
+  - admin
+  - gateway
+
+# İmajlar Docker Hub'dan gelir (gods-of-arena reposundaki "Imajlar" workflow'u yayınlar):
+#   berkerturan/<imaj>:latest ve berkerturan/<imaj>:sha-<kısa-commit>
+# Burada yalnızca varsayılan etiket durur; ortama özel etiket overlay'de verilir.
+images:
+  - name: berkerturan/goa-authentication
+    newTag: latest
+  - name: berkerturan/goa-heroes
+    newTag: latest
+  - name: berkerturan/goa-crafting
+    newTag: latest
+  - name: berkerturan/goa-inventory
+    newTag: latest
+  - name: berkerturan/goa-battle
+    newTag: latest
+  - name: berkerturan/goa-web-client
+    newTag: latest
+  - name: berkerturan/goa-admin-client
+    newTag: latest

@@ -1,0 +1,24 @@
+# Gizli olmayan ortak ayarlar. Parolalar goa-secrets içindedir (secrets.env).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: goa-config
+data:
+  POSTGRES_DB: gods_of_arena
+  POSTGRES_USER: goa
+  DB_URL: jdbc:postgresql://postgres:5432/gods_of_arena
+  DB_USER: goa
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_ADDR: redis:6379
+  HEROES_URL: http://heroes:9002
+  INVENTORY_URL: http://inventory:9004
+  GEMINI_MODEL: gemini-2.5-flash-lite
+  # HTTPS arkasında true yapın.
+  GOA_COOKIE_SECURE: "false"
+  # Go WebSocket Origin kontrolü: tarayıcının açtığı adresler.
+  ALLOWED_ORIGINS: http://goa.local,http://admin.goa.local
+  # Gateway arkasında X-Forwarded-* başlıkları dikkate alınır; kapanışta istekler tamamlanır.
+  SERVER_FORWARD_HEADERS_STRATEGY: framework
+  SERVER_SHUTDOWN: graceful
+  JAVA_OPTS: -XX:MaxRAMPercentage=75

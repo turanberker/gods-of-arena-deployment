@@ -1,0 +1,41 @@
+# Üretim ortamı. Kurulum:
+#   cp overlays/prod/secrets.env.example overlays/prod/secrets.env   # gerçek değerleri yazın (git'e girmez)
+#   kubectl apply -k overlays/prod
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: gods-of-arena
+
+resources:
+  - ../../base
+
+# Parolalar ve anahtarlar tek Secret'ta toplanır; içerik değişince hash eki değişir ve pod'lar yeniden başlar.
+secretGenerator:
+  - name: goa-secrets
+    envs:
+      - secrets.env
+
+patches:
+  # Alan adı, WebSocket Origin listesi ve çerez ayarı.
+  - path: patches/config.yaml
+  # Gateway yönlendirmelerinin alan adları.
+  - path: patches/routes.yaml
+
+# Yayınlanan sürüm. "latest" her zaman main'in son derlemesidir; geri alınabilir ve tekrarlanabilir
+# deploy için CI'ın ürettiği sabit etiket kullanılması önerilir, örn.:
+#   cd overlays/prod && kustomize edit set image berkerturan/goa-heroes=berkerturan/goa-heroes:sha-1f67886
+images:
+  - name: berkerturan/goa-authentication
+    newTag: latest
+  - name: berkerturan/goa-heroes
+    newTag: latest
+  - name: berkerturan/goa-crafting
+    newTag: latest
+  - name: berkerturan/goa-inventory
+    newTag: latest
+  - name: berkerturan/goa-battle
+    newTag: latest
+  - name: berkerturan/goa-web-client
+    newTag: latest
+  - name: berkerturan/goa-admin-client
+    newTag: latest

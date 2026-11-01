@@ -1,0 +1,150 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: crafting
+  labels:
+    app.kubernetes.io/name: crafting
+    app.kubernetes.io/part-of: gods-of-arena
+spec:
+  selector:
+    app.kubernetes.io/name: crafting
+  ports:
+    - name: http
+      port: 9003
+      targetPort: http
+---
+# Durumsuz servis: oturum Redis'te, veri PostgreSQL'de. Liquibase kilidi eşzamanlı açılışta migration'ı tek kopyaya yaptırır.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crafting
+  labels:
+    app.kubernetes.io/name: crafting
+    app.kubernetes.io/part-of: gods-of-arena
+spec:
+  # Kopya sayısını HPA yönetir (en az 2); apply her seferinde sıfırlamasın diye burada yazılmaz.
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crafting
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crafting
+        app.kubernetes.io/part-of: gods-of-arena
+    spec:
+      terminationGracePeriodSeconds: 40
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: crafting
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: crafting
+          image: berkerturan/goa-crafting
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 9003
+          env:
+            - name: DB_URL
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: DB_URL }
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: DB_USER }
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: REDIS_HOST }
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: REDIS_PORT }
+            - name: SERVER_FORWARD_HEADERS_STRATEGY
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: SERVER_FORWARD_HEADERS_STRATEGY }
+            - name: SERVER_SHUTDOWN
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: SERVER_SHUTDOWN }
+            - name: JAVA_OPTS
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: JAVA_OPTS }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: goa-secrets, key: POSTGRES_PASSWORD }
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: goa-secrets, key: REDIS_PASSWORD }
+            - name: INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef: { name: goa-secrets, key: INTERNAL_API_TOKEN }
+            - name: INVENTORY_URL
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: INVENTORY_URL }
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef: { name: goa-secrets, key: GEMINI_API_KEY }
+            - name: GEMINI_MODEL
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: GEMINI_MODEL }
+          startupProbe:
+            httpGet: { path: /actuator/health, port: http }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+          # Canlılık yalnızca süreç ayakta mı diye bakar; DB kesintisi pod'ları yeniden başlatmasın.
+          livenessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 20
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 1Gi }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: crafting
+  labels:
+    app.kubernetes.io/name: crafting
+    app.kubernetes.io/part-of: gods-of-arena
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: crafting
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: crafting
+  labels:
+    app.kubernetes.io/name: crafting
+    app.kubernetes.io/part-of: gods-of-arena
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crafting

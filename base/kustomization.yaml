@@ -1,0 +1,11 @@
+# Gods of Arena — ortamdan bağımsız temel (base).
+# Doğrudan uygulanmaz: goa-secrets Secret'ı ve alan adları overlay'de verilir.
+#   kubectl apply -k overlays/prod
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - config.yaml
+  - infra
+  - apps
