@@ -1,4 +1,4 @@
-# Her PR'da ve main'e push'ta manifestleri doğrular: kustomize build + kubeconform şema kontrolü.
+# Her PR'da ve main'e push'ta doğrular: kustomize build + kubeconform şema kontrolü, compose ve Caddyfile.
 # Küme erişimi gerekmez; secrets.env yerine örnek dosya kullanılır.
 name: Dogrula
 
@@ -42,3 +42,25 @@ jobs:
       # Gateway ve HTTPRoute CRD olduğu için çekirdek şemada yoktur, atlanır.
       - name: kubeconform
         run: kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0 rendered.yaml
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Örnek .env'deki boş zorunlu değerler sahte değerlerle doldurulur.
+      - name: docker compose config
+        working-directory: compose
+        run: |
+          sed -e 's/^ACME_EMAIL=$/ACME_EMAIL=ci@example.com/' \
+              -e 's/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=ci/' \
+              -e 's/^REDIS_PASSWORD=$/REDIS_PASSWORD=ci/' \
+              -e 's/^INTERNAL_API_TOKEN=$/INTERNAL_API_TOKEN=ci/' .env.example > .env
+          docker compose config -q
+
+      - name: Caddyfile
+        working-directory: compose
+        run: |
+          docker run --rm -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -e GOA_DOMAIN=goa.example.com -e GOA_ADMIN_DOMAIN=admin.goa.example.com -e ACME_EMAIL=ci@example.com \
+            caddy:2.8-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile

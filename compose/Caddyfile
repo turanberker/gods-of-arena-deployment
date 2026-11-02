@@ -1,0 +1,69 @@
+# Caddy: HTTPS (Let's Encrypt, otomatik yenileme) + yönlendirme.
+# Alan adları .env'den gelir: GOA_DOMAIN, GOA_ADMIN_DOMAIN, ACME_EMAIL.
+#
+# Servisler her iki adreste de /gw/<önek> altında yayınlanır, /gw kaldırılarak iletilir
+# (/gw/heroes/x → heroes:9002/heroes/x). /gw gerekli, çünkü /heroes ve /inventory aynı
+# zamanda arayüz sayfalarıdır. Aynı köken olduğu için tarayıcıda CORS gerekmez.
+# /internal/** uçları dışarı açılmaz (hiçbir kural onlara gitmez).
+
+{
+	email {$ACME_EMAIL}
+}
+
+(goa_api) {
+	handle /gw/api/* {
+		uri strip_prefix /gw
+		reverse_proxy auth:9001
+	}
+	handle /gw/heroes/* {
+		uri strip_prefix /gw
+		reverse_proxy heroes:9002
+	}
+	handle /gw/crafting/* {
+		uri strip_prefix /gw
+		reverse_proxy crafting:9003
+	}
+	handle /gw/inventory/* {
+		uri strip_prefix /gw
+		reverse_proxy inventory:9004
+	}
+	handle /gw/market/* {
+		uri strip_prefix /gw
+		reverse_proxy market:9006
+	}
+	# REST + WebSocket (Caddy WebSocket yükseltmesini kendisi taşır).
+	handle /gw/battle/* {
+		uri strip_prefix /gw
+		reverse_proxy battle:9005
+	}
+	# Bilinmeyen /gw yolları arayüze düşmesin.
+	handle /gw/* {
+		respond 404
+	}
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+{$GOA_DOMAIN} {
+	import common
+	import goa_api
+	handle {
+		reverse_proxy web:80
+	}
+}
+
+{$GOA_ADMIN_DOMAIN} {
+	import common
+	import goa_api
+	handle {
+		reverse_proxy admin:80
+	}
+}

@@ -22,6 +22,10 @@ k3s/traefik-config.yaml    # k3s Traefik'te Gateway API'yi açar (sunucuya bir k
 .github/workflows/validate.yml  # PR'da kustomize build + kubeconform
 ```
 
+## Küçük sunucu: docker compose
+
+Küçük, tek bir sunucu için k3s yerine `compose/` klasöründeki docker compose kurulumu kullanılır (her servisten bir kopya, Caddy ile otomatik HTTPS). Rehber: [compose/README.md](compose/README.md).
+
 ## Hedef: tek VM üzerinde k3s
 
 `overlays/prod` tek bir sunucuda çalışan [k3s](https://k3s.io) için ayarlıdır. k3s'in hazır getirdikleri kullanılır:
