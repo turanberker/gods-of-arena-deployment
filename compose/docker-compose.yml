@@ -1,0 +1,209 @@
+# Gods of Arena — tek sunucu kurulumu (docker compose).
+# Her servisten bir kopya; PostgreSQL ve Redis aynı makinede. Caddy 80/443'ü dinler,
+# Let's Encrypt sertifikasını kendisi alır ve /gw/<önek> isteklerini servislere dağıtır.
+#
+#   cp .env.example .env      # gerçek değerleri yazın (git'e girmez)
+#   docker compose pull && docker compose up -d
+#
+# Ayrıntı: compose/README.md
+
+x-java-env: &java-env
+  DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-gods_of_arena}
+  DB_USER: ${POSTGRES_USER:-goa}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env içinde zorunlu}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD .env içinde zorunlu}
+  INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN .env içinde zorunlu}
+  # Caddy arkasında X-Forwarded-* başlıkları dikkate alınır.
+  SERVER_FORWARD_HEADERS_STRATEGY: framework
+  SERVER_SHUTDOWN: graceful
+  # Küçük sunucu için: kapsayıcı belleğinin %75'i heap, tek iş parçacıklı GC.
+  JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+UseSerialGC}
+
+x-java-deps: &java-deps
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+# Spring Boot açılışı Liquibase ile birlikte birkaç on saniye sürebilir (küçük makinede daha uzun).
+x-java-health: &java-health
+  interval: 15s
+  timeout: 5s
+  retries: 20
+  start_period: 90s
+
+x-java-service: &java-service
+  restart: unless-stopped
+  mem_limit: ${JAVA_MEM_LIMIT:-512m}
+  depends_on: *java-deps
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+name: gods-of-arena
+
+services:
+
+  # ── Ön kapı ──────────────────────────────────────────────────
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      GOA_DOMAIN: ${GOA_DOMAIN:?GOA_DOMAIN .env içinde zorunlu}
+      GOA_ADMIN_DOMAIN: ${GOA_ADMIN_DOMAIN:?GOA_ADMIN_DOMAIN .env içinde zorunlu}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL .env içinde zorunlu}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - admin
+    logging: *logging
+
+  # ── Altyapı ──────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gods_of_arena}
+      POSTGRES_USER: ${POSTGRES_USER:-goa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env içinde zorunlu}
+    # Dışarı port açılmaz; yalnızca kapsayıcılar arası ağdan erişilir.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD .env içinde zorunlu}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    logging: *logging
+
+  # ── Java servisleri ──────────────────────────────────────────
+  auth:
+    <<: *java-service
+    image: berkerturan/goa-authentication:${IMAGE_TAG:-latest}
+    environment:
+      <<: *java-env
+      GOA_ADMIN_USERNAME: ${GOA_ADMIN_USERNAME:-}
+      GOA_ADMIN_EMAIL: ${GOA_ADMIN_EMAIL:-}
+      GOA_ADMIN_PASSWORD: ${GOA_ADMIN_PASSWORD:-}
+      # HTTPS arkasında giriş çerezi yalnızca güvenli bağlantıda gönderilir.
+      GOA_COOKIE_SECURE: ${GOA_COOKIE_SECURE:-true}
+    healthcheck:
+      <<: *java-health
+      test: ["CMD", "wget", "-qO-", "http://localhost:9001/actuator/health"]
+
+  heroes:
+    <<: *java-service
+    image: berkerturan/goa-heroes:${IMAGE_TAG:-latest}
+    environment:
+      <<: *java-env
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+    healthcheck:
+      <<: *java-health
+      test: ["CMD", "wget", "-qO-", "http://localhost:9002/actuator/health"]
+
+  crafting:
+    <<: *java-service
+    image: berkerturan/goa-crafting:${IMAGE_TAG:-latest}
+    environment:
+      <<: *java-env
+      INVENTORY_URL: http://inventory:9004
+      MARKET_URL: http://market:9006
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+    healthcheck:
+      <<: *java-health
+      test: ["CMD", "wget", "-qO-", "http://localhost:9003/actuator/health"]
+
+  inventory:
+    <<: *java-service
+    image: berkerturan/goa-inventory:${IMAGE_TAG:-latest}
+    environment:
+      <<: *java-env
+    healthcheck:
+      <<: *java-health
+      test: ["CMD", "wget", "-qO-", "http://localhost:9004/actuator/health"]
+
+  market:
+    <<: *java-service
+    image: berkerturan/goa-market:${IMAGE_TAG:-latest}
+    environment:
+      <<: *java-env
+      CRAFTING_URL: http://crafting:9003
+      INVENTORY_URL: http://inventory:9004
+    healthcheck:
+      <<: *java-health
+      test: ["CMD", "wget", "-qO-", "http://localhost:9006/actuator/health"]
+
+  # ── Go savaş sunucusu ────────────────────────────────────────
+  battle:
+    image: berkerturan/goa-battle:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-goa}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gods_of_arena}?sslmode=disable
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      HEROES_URL: http://heroes:9002
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+      BATTLE_PORT: 9005
+      # WebSocket Origin kontrolü: web, admin ve mobil (Capacitor) kökenleri.
+      ALLOWED_ORIGINS: https://${GOA_DOMAIN},https://${GOA_ADMIN_DOMAIN},https://localhost,capacitor://localhost
+    depends_on: *java-deps
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9005/battle/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  # ── Arayüzler (nginx) ────────────────────────────────────────
+  web:
+    image: berkerturan/goa-web-client:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    mem_limit: 64m
+    logging: *logging
+
+  admin:
+    image: berkerturan/goa-admin-client:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    mem_limit: 64m
+    logging: *logging
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
