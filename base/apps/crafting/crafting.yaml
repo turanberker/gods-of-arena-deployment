@@ -87,6 +87,9 @@ spec:
             - name: INVENTORY_URL
               valueFrom:
                 configMapKeyRef: { name: goa-config, key: INVENTORY_URL }
+            - name: MARKET_URL
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: MARKET_URL }
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef: { name: goa-secrets, key: GEMINI_API_KEY }

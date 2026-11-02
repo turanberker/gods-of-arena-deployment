@@ -9,6 +9,7 @@ resources:
   - heroes
   - crafting
   - inventory
+  - market
   - battle
   - web
   - admin
@@ -25,6 +26,8 @@ images:
   - name: berkerturan/goa-crafting
     newTag: latest
   - name: berkerturan/goa-inventory
+    newTag: latest
+  - name: berkerturan/goa-market
     newTag: latest
   - name: berkerturan/goa-battle
     newTag: latest

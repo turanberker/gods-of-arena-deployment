@@ -36,6 +36,8 @@ images:
     newTag: latest
   - name: berkerturan/goa-inventory
     newTag: latest
+  - name: berkerturan/goa-market
+    newTag: latest
   - name: berkerturan/goa-battle
     newTag: latest
   - name: berkerturan/goa-web-client

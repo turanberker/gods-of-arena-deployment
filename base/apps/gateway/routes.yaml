@@ -46,6 +46,14 @@ spec:
             path: { type: ReplacePrefixMatch, replacePrefixMatch: /inventory }
       backendRefs:
         - { name: inventory, port: 9004 }
+    - matches:
+        - path: { type: PathPrefix, value: /gw/market }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /market }
+      backendRefs:
+        - { name: market, port: 9006 }
     # REST ve WebSocket (/gw/battle/ws/matches/{id}).
     - matches:
         - path: { type: PathPrefix, value: /gw/battle }
