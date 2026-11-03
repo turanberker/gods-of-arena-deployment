@@ -17,6 +17,9 @@ x-java-env: &java-env
   INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN .env içinde zorunlu}
   # Caddy arkasında X-Forwarded-* başlıkları dikkate alınır.
   SERVER_FORWARD_HEADERS_STRATEGY: framework
+  # Tarayıcının çağırdığı kökenler (web, admin, mobil kabuk). İstekler aynı kökenden gelse de
+  # açıkça listelenir; liste boş kalırsa servisler yalnızca localhost geliştirme kökenlerine izin verir.
+  GOA_SECURITY_CORS_ALLOWED_ORIGINS: https://${GOA_DOMAIN},https://${GOA_ADMIN_DOMAIN},https://localhost,capacitor://localhost
   SERVER_SHUTDOWN: graceful
   # Küçük sunucu için: kapsayıcı belleğinin %75'i heap, tek iş parçacıklı GC.
   JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+UseSerialGC}
