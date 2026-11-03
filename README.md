@@ -9,7 +9,7 @@ base/                      # ortamdan bağımsız temel (doğrudan uygulanmaz)
 ├── config.yaml            # goa-config (gizli olmayan ayarlar)
 ├── infra/                 # PostgreSQL, Redis (tek kopyalı StatefulSet + kalıcı disk)
 └── apps/                  # her uygulama kendi klasöründe
-    ├── auth/ heroes/ crafting/ inventory/   # Java, HPA 2..5, PDB
+    ├── auth/ heroes/ crafting/ inventory/ market/   # Java, HPA 2..5, PDB
     ├── battle/                               # Go, HPA 2..5, PDB (Redis ile koordine)
     ├── web/ admin/                           # nginx, HPA 2..4, PDB
     └── gateway/                              # Gateway API: Gateway + HTTPRoute'lar
@@ -71,6 +71,7 @@ CRD'ler yoksa Gateway API'nin standart CRD'leri [gateway-api sürümlerinden](ht
 | heroes | `berkerturan/goa-heroes` |
 | crafting | `berkerturan/goa-crafting` |
 | inventory | `berkerturan/goa-inventory` |
+| market | `berkerturan/goa-market` |
 | battle | `berkerturan/goa-battle` |
 | web | `berkerturan/goa-web-client` |
 | admin | `berkerturan/goa-admin-client` |
@@ -92,6 +93,7 @@ Docker Hub repoları özelse kümeye bir `imagePullSecret` eklenmesi gerekir (ş
   VITE_HEROES_API_URL=/gw
   VITE_CRAFTING_API_URL=/gw
   VITE_INVENTORY_API_URL=/gw
+  VITE_MARKET_API_URL=/gw
   VITE_BATTLE_API_URL=/gw
   VITE_BATTLE_WS_URL=ws://goa.example.com/gw
   ```
@@ -141,6 +143,7 @@ TLS henüz yok (Gateway yalnızca HTTP 80 dinliyor). Önerilen yol cert-manager 
 | `*/gw/heroes/**` | heroes (`/heroes/**`) |
 | `*/gw/crafting/**` | crafting |
 | `*/gw/inventory/**` | inventory |
+| `*/gw/market/**` | market |
 | `*/gw/battle/**` | battle (REST + WebSocket) |
 
 `/gw` öneki, `/heroes` ve `/inventory` gibi yolların aynı zamanda arayüz sayfası olmasındandır. Arayüz ve servisler aynı kökenden açıldığı için CORS gerekmez. `/internal/**` uçları dışarı açılmaz; servisler birbirine küme içi adlarla gider (`http://heroes:9002`, `http://inventory:9004`).

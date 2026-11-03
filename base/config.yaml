@@ -13,6 +13,8 @@ data:
   REDIS_ADDR: redis:6379
   HEROES_URL: http://heroes:9002
   INVENTORY_URL: http://inventory:9004
+  CRAFTING_URL: http://crafting:9003
+  MARKET_URL: http://market:9006
   GEMINI_MODEL: gemini-2.5-flash-lite
   # HTTPS arkasında true yapın.
   GOA_COOKIE_SECURE: "false"
