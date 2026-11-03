@@ -21,7 +21,7 @@ compose/
 | `…/gw/heroes/**`, `/gw/crafting/**`, `/gw/inventory/**`, `/gw/market/**` | ilgili Java servisi |
 | `…/gw/battle/**` | battle (REST + WebSocket) |
 
-`/gw` öneki kaldırılarak iletilir (`/gw/heroes/x` → `heroes:9002/heroes/x`). Arayüz ve API aynı adreste olduğu için CORS gerekmez. `/internal/**` uçları dışarı açılmaz. Kök alan adı (`amateurtennisleague.com`, `www`) bu kurulumda kullanılmaz.
+`/gw` öneki kaldırılarak iletilir (`/gw/heroes/x` → `heroes:9002/heroes/x`). Arayüz ve API aynı adreste; yine de Java servisleri `GOA_SECURITY_CORS_ALLOWED_ORIGINS` ile bu iki alan adına (ve mobil kabuğa) açıkça izin verir, yoksa POST istekleri 403 "Invalid CORS request" alabilir. `/internal/**` uçları dışarı açılmaz. Kök alan adı (`amateurtennisleague.com`, `www`) bu kurulumda kullanılmaz.
 
 ## Sunucu boyutu
 
