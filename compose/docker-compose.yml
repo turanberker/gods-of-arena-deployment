@@ -1,5 +1,5 @@
 # Gods of Arena — tek sunucu kurulumu (docker compose).
-# Her servisten bir kopya; PostgreSQL ve Redis aynı makinede. Caddy 80/443'ü dinler,
+# Her servisten bir kopya; PostgreSQL, Redis ve Kafka aynı makinede. Caddy 80/443'ü dinler,
 # Let's Encrypt sertifikasını kendisi alır ve /gw/<önek> isteklerini servislere dağıtır.
 #
 #   cp .env.example .env      # gerçek değerleri yazın (git'e girmez)
@@ -15,6 +15,8 @@ x-java-env: &java-env
   REDIS_PORT: 6379
   REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD .env içinde zorunlu}
   INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN .env içinde zorunlu}
+  # Maç sonucu olayları (heroes: XP/yaralanma, inventory: arena ücret havuzu).
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   # Caddy arkasında X-Forwarded-* başlıkları dikkate alınır.
   SERVER_FORWARD_HEADERS_STRATEGY: framework
   # Tarayıcının çağırdığı kökenler (web, admin, mobil kabuk). İstekler aynı kökenden gelse de
@@ -28,6 +30,8 @@ x-java-deps: &java-deps
   postgres:
     condition: service_healthy
   redis:
+    condition: service_healthy
+  kafka:
     condition: service_healthy
 
 # Spring Boot açılışı Liquibase ile birlikte birkaç on saniye sürebilir (küçük makinede daha uzun).
@@ -111,6 +115,38 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     logging: *logging
 
+  # Maç sonucu olayları: Go battle outbox -> topic battle.match-finished.v1 -> heroes, inventory.
+  # Tek broker, KRaft (ZooKeeper yok), yalnızca iç ağda (port dışarı açılmaz).
+  kafka:
+    image: apache/kafka:3.9.1
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx256m
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    logging: *logging
+
   # ── Java servisleri ──────────────────────────────────────────
   auth:
     <<: *java-service
@@ -180,6 +216,9 @@ services:
       REDIS_ADDR: redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       HEROES_URL: http://heroes:9002
+      INVENTORY_URL: http://inventory:9004
+      ARENA_ENTRY_FEE: ${ARENA_ENTRY_FEE:-50}
+      KAFKA_BROKERS: kafka:9092
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
       BATTLE_PORT: 9005
       # WebSocket Origin kontrolü: web, admin ve mobil (Capacitor) kökenleri.
@@ -208,5 +247,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  kafka_data:
   caddy_data:
   caddy_config:

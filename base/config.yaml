@@ -15,6 +15,11 @@ data:
   INVENTORY_URL: http://inventory:9004
   CRAFTING_URL: http://crafting:9003
   MARKET_URL: http://market:9006
+  # Maç sonucu olayları (battle outbox -> heroes, inventory). Java KAFKA_BOOTSTRAP_SERVERS, Go KAFKA_BROKERS okur.
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  KAFKA_BROKERS: kafka:9092
+  # Oyuncu başına arena giriş ücreti (altın).
+  ARENA_ENTRY_FEE: "50"
   GEMINI_MODEL: gemini-2.5-flash-lite
   # HTTPS arkasında true yapın.
   GOA_COOKIE_SECURE: "false"

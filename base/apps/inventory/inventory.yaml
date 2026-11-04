@@ -66,6 +66,9 @@ spec:
             - name: REDIS_PORT
               valueFrom:
                 configMapKeyRef: { name: goa-config, key: REDIS_PORT }
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: KAFKA_BOOTSTRAP_SERVERS }
             - name: SERVER_FORWARD_HEADERS_STRATEGY
               valueFrom:
                 configMapKeyRef: { name: goa-config, key: SERVER_FORWARD_HEADERS_STRATEGY }

@@ -1,12 +1,12 @@
 # Tek sunucu kurulumu (docker compose)
 
-Küçük, tek bir sunucu için. Her servisten bir kopya çalışır; PostgreSQL ve Redis aynı makinededir. Caddy 80/443 portlarını dinler, Let's Encrypt sertifikasını kendisi alıp yeniler ve istekleri servislere dağıtır. k3s kurulumu (`overlays/prod`) daha büyük makine içindir; ikisi aynı Docker Hub imajlarını kullanır.
+Küçük, tek bir sunucu için. Her servisten bir kopya çalışır; PostgreSQL, Redis ve Kafka aynı makinededir. Caddy 80/443 portlarını dinler, Let's Encrypt sertifikasını kendisi alıp yeniler ve istekleri servislere dağıtır. k3s kurulumu (`overlays/prod`) daha büyük makine içindir; ikisi aynı Docker Hub imajlarını kullanır.
 
 > Bu adımlar henüz gerçek sunucuda denenmedi. Caddy yönlendirmesi sahte servislerle, compose dosyası `docker compose config` ile doğrulandı.
 
 ```
 compose/
-├── docker-compose.yml   # caddy, postgres, redis, 5 Java servisi, battle, web, admin
+├── docker-compose.yml   # caddy, postgres, redis, kafka, 5 Java servisi, battle, web, admin
 ├── Caddyfile            # HTTPS + /gw yönlendirmesi
 └── .env.example         # → .env (alan adları, parolalar; git'e girmez)
 ```
@@ -25,7 +25,7 @@ compose/
 
 ## Sunucu boyutu
 
-Bellek sınırları: 5 Java servisi × 512 MB, battle 256 MB, Redis 128 MB, PostgreSQL, Caddy ve iki nginx ile toplam en fazla yaklaşık **3–3,5 GB**. Boşta gerçek kullanım daha düşüktür.
+Bellek sınırları: 5 Java servisi × 512 MB, battle 256 MB, Kafka 512 MB, Redis 128 MB, PostgreSQL, Caddy ve iki nginx ile toplam en fazla yaklaşık **3,5–4 GB**. Boşta gerçek kullanım daha düşüktür.
 
 | Makine | Durum |
 |---|---|

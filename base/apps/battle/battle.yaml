@@ -78,6 +78,15 @@ spec:
             - name: HEROES_URL
               valueFrom:
                 configMapKeyRef: { name: goa-config, key: HEROES_URL }
+            - name: INVENTORY_URL
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: INVENTORY_URL }
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: KAFKA_BROKERS }
+            - name: ARENA_ENTRY_FEE
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: ARENA_ENTRY_FEE }
             - name: INTERNAL_API_TOKEN
               valueFrom:
                 secretKeyRef: { name: goa-secrets, key: INTERNAL_API_TOKEN }

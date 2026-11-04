@@ -7,7 +7,7 @@ base/                      # ortamdan bağımsız temel (doğrudan uygulanmaz)
 ├── kustomization.yaml
 ├── namespace.yaml         # gods-of-arena
 ├── config.yaml            # goa-config (gizli olmayan ayarlar)
-├── infra/                 # PostgreSQL, Redis (tek kopyalı StatefulSet + kalıcı disk)
+├── infra/                 # PostgreSQL, Redis, Kafka (tek kopyalı StatefulSet + kalıcı disk)
 └── apps/                  # her uygulama kendi klasöründe
     ├── auth/ heroes/ crafting/ inventory/ market/   # Java, HPA 2..5, PDB
     ├── battle/                               # Go, HPA 2..5, PDB (Redis ile koordine)
@@ -152,6 +152,7 @@ TLS henüz yok (Gateway yalnızca HTTP 80 dinliyor). Önerilen yol cert-manager 
 
 - **Java servisleri ve frontend'ler** durumsuzdur: oturum Redis'te, veri PostgreSQL'de. HPA en az 2 kopya tutar, CPU %70 üstünde artırır. PDB bakım sırasında en az bir kopyayı ayakta tutar, `topologySpreadConstraints` kopyaları farklı düğümlere dağıtır. Aynı anda açılan kopyalarda Liquibase kilidi migration'ı tek kopyaya yaptırır.
 - **Go savaş sunucusu da çok kopyalıdır** (HPA en az 2, PDB, rolling update). Eşleşme kuyruğu, maç sahipliği (Redis kirası) ve kopyalar arası WebSocket aktarımı (Redis pub/sub) Redis'tedir; yapışkan oturum gerekmez. Kapanan veya çöken pod'un maçları diğer kopya tarafından hamle kaydından devralınır, istemci yeniden bağlanır. Redis artık battle için zorunludur (açılışta erişilemezse pod başlamaz). Ayrıntı: gods-of-arena reposunda `docs/backend-services/battle.md#çoklu-instance`.
+- **Kafka** (tek broker, KRaft) maç sonucu olaylarını taşır: Go battle outbox → `battle.match-finished.v1` → heroes (XP, yaralanma) ve inventory (arena ücret havuzu). Topic ilk yayında otomatik açılır. Kafka kapalıyken maçlar oynanır; olaylar battle'ın outbox tablosunda bekler ve Kafka gelince gönderilir.
 - **PostgreSQL ve Redis** tek kopyalı StatefulSet'tir. Üretimde yönetilen servis veya operatör (CloudNativePG, Redis Sentinel) önerilir; o durumda `base/infra` yerine `goa-config`'teki adresleri değiştirmek yeterlidir.
 
 ## Otomatik deploy (öneri, henüz kurulmadı)

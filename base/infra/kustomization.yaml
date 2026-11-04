@@ -1,4 +1,4 @@
-# Altyapı: PostgreSQL ve Redis. İkisi de tek kopyalı StatefulSet'tir (kalıcı disk ile).
+# Altyapı: PostgreSQL, Redis ve Kafka. İkisi de tek kopyalı StatefulSet'tir (kalıcı disk ile).
 # Çok kopyalı/HA veritabanı için yönetilen servis (RDS, Cloud SQL) veya operatör
 # (CloudNativePG, Redis Sentinel) kullanın; buradaki tanımlar geliştirme/küçük ortam içindir.
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -7,3 +7,4 @@ kind: Kustomization
 resources:
   - postgres.yaml
   - redis.yaml
+  - kafka.yaml
