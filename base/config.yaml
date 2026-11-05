@@ -20,6 +20,8 @@ data:
   KAFKA_BROKERS: kafka:9092
   # Oyuncu başına arena giriş ücreti (altın).
   ARENA_ENTRY_FEE: "50"
+  # Beraberlikte her oyuncuya iade edilen ücret yüzdesi (kalanı oyundan çıkar).
+  ARENA_DRAW_REFUND_PERCENT: "80"
   GEMINI_MODEL: gemini-2.5-flash-lite
   # HTTPS arkasında true yapın.
   GOA_COOKIE_SECURE: "false"
