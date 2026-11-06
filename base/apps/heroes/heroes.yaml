@@ -78,6 +78,12 @@ spec:
             - name: JAVA_OPTS
               valueFrom:
                 configMapKeyRef: { name: goa-config, key: JAVA_OPTS }
+            - name: INVENTORY_URL
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: INVENTORY_URL }
+            - name: MARKET_URL
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: MARKET_URL }
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef: { name: goa-secrets, key: POSTGRES_PASSWORD }
