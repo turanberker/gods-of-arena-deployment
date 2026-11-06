@@ -88,6 +88,9 @@ spec:
             - name: CRAFTING_URL
               valueFrom:
                 configMapKeyRef: { name: goa-config, key: CRAFTING_URL }
+            - name: HEROES_URL
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: HEROES_URL }
             - name: INVENTORY_URL
               valueFrom:
                 configMapKeyRef: { name: goa-config, key: INVENTORY_URL }

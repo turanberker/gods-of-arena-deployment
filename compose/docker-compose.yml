@@ -169,6 +169,8 @@ services:
       <<: *java-env
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+      INVENTORY_URL: http://inventory:9004
+      MARKET_URL: http://market:9006
     healthcheck:
       <<: *java-health
       test: ["CMD", "wget", "-qO-", "http://localhost:9002/actuator/health"]
@@ -201,6 +203,7 @@ services:
     environment:
       <<: *java-env
       CRAFTING_URL: http://crafting:9003
+      HEROES_URL: http://heroes:9002
       INVENTORY_URL: http://inventory:9004
     healthcheck:
       <<: *java-health
