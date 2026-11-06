@@ -20,6 +20,7 @@ overlays/
     └── patches/             # config.yaml (Origin, çerez), routes.yaml (alan adları), gateway-k3s.yaml
 k3s/traefik-config.yaml    # k3s Traefik'te Gateway API'yi açar (sunucuya bir kez kopyalanır)
 .github/workflows/validate.yml  # PR'da kustomize build + kubeconform
+.github/workflows/cd.yml        # main'e push: sunucuda git pull + compose/.env yazma
 ```
 
 ## Küçük sunucu: docker compose
@@ -155,9 +156,26 @@ TLS henüz yok (Gateway yalnızca HTTP 80 dinliyor). Önerilen yol cert-manager 
 - **Kafka** (tek broker, KRaft) maç sonucu olaylarını taşır: Go battle outbox → `battle.match-finished.v1` → heroes (XP, yaralanma) ve inventory (arena ücret havuzu). Topic ilk yayında otomatik açılır. Kafka kapalıyken maçlar oynanır; olaylar battle'ın outbox tablosunda bekler ve Kafka gelince gönderilir.
 - **PostgreSQL ve Redis** tek kopyalı StatefulSet'tir. Üretimde yönetilen servis veya operatör (CloudNativePG, Redis Sentinel) önerilir; o durumda `base/infra` yerine `goa-config`'teki adresleri değiştirmek yeterlidir.
 
-## Otomatik deploy (öneri, henüz kurulmadı)
+## Otomatik deploy (CD)
 
-Hedef tek VM + k3s olduğu için iki yol var; SSH anahtarı gelince netleşir:
+`.github/workflows/cd.yml`: `main`'e her push'ta (veya Actions → **CD** → *Run workflow* ile elle) sunucuya SSH ile bağlanır, bu reponun sunucudaki kopyasında `git pull --ff-only` yapar ve `compose/.env` dosyasını `DEPLOY_ENV_FILE` secret'ının içeriğiyle yeniden yazar (izin 600). Başka bir şey yapmaz: imaj çekme ve container yeniden başlatma yoktur (imajlar güncellenince gods-of-arena'daki Imajlar workflow'unun deploy işi bunu yapar).
+
+Repo ayarlarında (Settings → Secrets and variables → Actions) tanımlanacaklar:
+
+| Ad | Tür | Açıklama |
+|---|---|---|
+| `SSH_HOST` | Secret | Sunucu adresi (IP veya alan adı) |
+| `SSH_USER` | Secret | SSH kullanıcısı (ör. `root`) |
+| `SSH_KEY` | Secret | Özel anahtarın tamamı (`-----BEGIN` … `END-----` satırları dahil); açık anahtarı sunucuda `~/.ssh/authorized_keys`'te olmalı |
+| `DEPLOY_ENV_FILE` | Secret | `compose/.env` dosyasının tam içeriği (`.env.example` biçiminde) |
+| `SSH_PORT` | Secret, isteğe bağlı | Boşsa `22` |
+| `DEPLOY_PATH` | Variable, isteğe bağlı | Reponun sunucudaki klasörü; boşsa `/root/gods-of-arena-deployment` |
+
+Sunucuda repo bir kez `git clone` ile o klasöre kurulmuş olmalıdır. `.env`'i değiştirmek için secret'ı güncelleyip workflow'u elle çalıştırmak yeterli; yeni değerlerin container'lara geçmesi için `docker compose up -d` gerekir.
+
+### İleride: k3s
+
+Hedef tek VM + k3s olunca iki yol var:
 
 1. **CI'dan SSH ile apply** (Tennis League'deki `appleboy/ssh-action` yaklaşımı): gods-of-arena'daki Imajlar workflow'una `needs: build-push` ile bir deploy işi eklenir. İş sunucuya SSH ile bağlanır, bu repoyu çeker, imaj etiketini yeni `sha-<commit>` yapar ve `kubectl apply -k overlays/prod` çalıştırır. Gerekenler: `SSH_HOST`, `SSH_USER`, `SSH_KEY` secret'ları ve sunucuda `kubectl` erişimi (k3s'te `/etc/rancher/k3s/k3s.yaml`). Tek VM için en az parçalı yol budur.
 2. **Argo CD (GitOps):** Kümeye Argo CD kurulur, bu repoyu izler. CI yeni etiketi bu repoya commit'ler (gods-of-arena'dan bu repoya yazma yetkili bir token gerekir), Argo CD kümeyi eşitler. Geçmiş ve geri alma Git'te tutulur, ama kümede ek bir bileşen ve Secret'lar için Sealed Secrets/SOPS gerekir.
