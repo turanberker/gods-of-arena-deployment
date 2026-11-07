@@ -1,18 +1,17 @@
 # Sürekli dağıtım: main'e her push'ta (veya elle) sunucuya SSH ile bağlanır,
 # bu reponun sunucudaki kopyasında `git pull` yapar ve compose/.env dosyasını
-# DEPLOY_ENV_FILE secret'ının içeriğiyle yeniden yazar. Başka bir şey yapmaz
+# ENV_ önekli secret ve variable'lardan yeniden yazar. Başka bir şey yapmaz
 # (imaj çekme / container yeniden başlatma yok).
 #
-# Gerekli secret'lar (Settings → Secrets and variables → Actions → Secrets):
-#   SSH_HOST         sunucu adresi (IP veya alan adı)
-#   SSH_USER         SSH kullanıcısı
-#   SSH_KEY          özel anahtarın tamamı (-----BEGIN ... END----- dahil)
-#   DEPLOY_ENV_FILE  compose/.env dosyasının tam içeriği. Secret ya da Variable
-#                    olabilir; secret varsa o kullanılır. Variable seçilirse içerik
-#                    GitHub arayüzünden görülebilir ve düzenlenebilir.
-# İsteğe bağlı:
-#   SSH_PORT         secret; boşsa 22
-#   DEPLOY_PATH      variable (Variables sekmesi); boşsa /root/gods-of-arena-deployment
+# Bağlantı secret'ları (Settings → Secrets and variables → Actions → Secrets):
+#   SSH_HOST, SSH_USER, SSH_KEY   zorunlu
+#   SSH_PORT                      isteğe bağlı; boşsa 22
+# İsteğe bağlı variable: DEPLOY_PATH (boşsa /root/gods-of-arena-deployment)
+#
+# .env değerleri: adı ENV_ ile başlayan her secret ve variable, öneki atılarak
+# .env'e yazılır (ENV_POSTGRES_PASSWORD -> POSTGRES_PASSWORD). Parolalar Secret,
+# gizli olmayan ayarlar (alan adı, bellek, etiket) Variable olarak tanımlanır.
+# Aynı ad ikisinde de varsa secret kazanır. Yeni anahtar için workflow değişmez.
 name: CD
 
 on:
@@ -33,24 +32,32 @@ jobs:
     name: sunucuda git pull
     runs-on: ubuntu-latest
     steps:
-      # Çok satırlı .env içeriği SSH betiğine güvenle taşınsın diye base64'e çevrilir
-      # (tırnak, $ ve satır sonları bozulmaz). Base64 hali de loglarda maskelenir.
+      # .env, ENV_ önekli variable ve secret'lardan üretilir (secret'lar aynı adı ezer).
+      # Değerler tek tırnakla yazılır (compose'ta $ ve # olduğu gibi kalır); içinde
+      # tek tırnak olan değer çift tırnakla, kaçışlı yazılır. Dosya SSH betiğine
+      # bozulmadan gitsin diye base64'e çevrilir; base64 hali de maskelenir.
       - name: env dosyasını hazırla
         id: envfile
         env:
-          DEPLOY_ENV_FILE: ${{ secrets.DEPLOY_ENV_FILE || vars.DEPLOY_ENV_FILE }}
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
         run: |
-          if [ -z "$DEPLOY_ENV_FILE" ]; then
-            echo "::error::DEPLOY_ENV_FILE (secret veya variable) tanımlı değil."
+          content=$(jq -rn --argjson v "$VARS_JSON" --argjson s "$SECRETS_JSON" '
+            ($v + $s) | to_entries
+            | map(select(.key | startswith("ENV_")))
+            | sort_by(.key)
+            | map((.key | ltrimstr("ENV_")) + "=" + (
+                (.value | tostring) as $x
+                | if ($x | contains("'"'"'")) then
+                    "\"" + ($x | gsub("\\\\"; "\\\\") | gsub("\""; "\\\"") | gsub("\\$"; "\\$")) + "\""
+                  else "'"'"'" + $x + "'"'"'" end))
+            | join("\n")')
+          if [ -z "$content" ]; then
+            echo "::error::ENV_ ile başlayan hiçbir secret veya variable tanımlı değil."
             exit 1
           fi
-          # Variable olarak tanımlandıysa GitHub otomatik maskelemez; her satırın
-          # değeri loglarda maskelensin.
-          while IFS= read -r line; do
-            val=${line#*=}
-            if [ "$val" != "$line" ] && [ ${#val} -ge 4 ]; then echo "::add-mask::$val"; fi
-          done <<< "$DEPLOY_ENV_FILE"
-          b64=$(printf '%s\n' "$DEPLOY_ENV_FILE" | base64 -w0)
+          echo "Yazılacak anahtarlar:"; printf '%s\n' "$content" | cut -d= -f1 | sed 's/^/  /'
+          b64=$(printf '%s\n' "$content" | base64 -w0)
           echo "::add-mask::$b64"
           echo "b64=$b64" >> "$GITHUB_OUTPUT"
 
