@@ -124,7 +124,7 @@ Sertifika alınamıyorsa: DNS kaydı sunucuyu göstermiyor ya da 80/443 dışar�
 
 ## Secret'lar
 
-Tüm gizli değerler sunucudaki `compose/.env` dosyasındadır; repoya girmez (`.gitignore`). Zorunlu olanlar boşsa `docker compose` başlamadan hata verir.
+Tüm gizli değerler sunucudaki `compose/.env` dosyasındadır; repoya girmez (`.gitignore`). CD workflow'u bu dosyayı GitHub'daki `ENV_` önekli secret ve variable'lardan her çalışmada yeniden yazar; elle düzenleme bir sonraki dağıtımda kaybolur, kalıcı değişiklik GitHub'da yapılmalı (bkz. [ana README](../README.md#otomatik-deploy-cd)). Zorunlu olanlar boşsa `docker compose` başlamadan hata verir.
 
 | Değişken | Açıklama |
 |---|---|

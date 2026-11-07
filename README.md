@@ -20,6 +20,7 @@ overlays/
     └── patches/             # config.yaml (Origin, çerez), routes.yaml (alan adları), gateway-k3s.yaml
 k3s/traefik-config.yaml    # k3s Traefik'te Gateway API'yi açar (sunucuya bir kez kopyalanır)
 .github/workflows/validate.yml  # PR'da kustomize build + kubeconform
+.github/workflows/cd.yml        # main'e push: sunucuda git pull + compose/.env (ENV_* değerlerinden)
 ```
 
 ## Küçük sunucu: docker compose
@@ -155,9 +156,33 @@ TLS henüz yok (Gateway yalnızca HTTP 80 dinliyor). Önerilen yol cert-manager 
 - **Kafka** (tek broker, KRaft) maç sonucu olaylarını taşır: Go battle outbox → `battle.match-finished.v1` → heroes (XP, yaralanma) ve inventory (arena ücret havuzu). Topic ilk yayında otomatik açılır. Kafka kapalıyken maçlar oynanır; olaylar battle'ın outbox tablosunda bekler ve Kafka gelince gönderilir.
 - **PostgreSQL ve Redis** tek kopyalı StatefulSet'tir. Üretimde yönetilen servis veya operatör (CloudNativePG, Redis Sentinel) önerilir; o durumda `base/infra` yerine `goa-config`'teki adresleri değiştirmek yeterlidir.
 
-## Otomatik deploy (öneri, henüz kurulmadı)
+## Otomatik deploy (CD)
 
-Hedef tek VM + k3s olduğu için iki yol var; SSH anahtarı gelince netleşir:
+`.github/workflows/cd.yml`: `main`'e her push'ta (veya Actions → **CD** → *Run workflow* ile elle) sunucuya SSH ile bağlanır, bu reponun sunucudaki kopyasında `git pull --ff-only` yapar ve `compose/.env` dosyasını GitHub'daki `ENV_` önekli değerlerden yeniden yazar (izin 600). Başka bir şey yapmaz: imaj çekme ve container yeniden başlatma yoktur (imajlar güncellenince gods-of-arena'daki Imajlar workflow'unun deploy işi bunu yapar).
+
+Tanımlar repo ayarlarında yapılır: Settings → Secrets and variables → Actions.
+
+**Bağlantı**
+
+| Ad | Tür | Açıklama |
+|---|---|---|
+| `SSH_HOST` | Secret | Sunucu adresi (IP veya alan adı) |
+| `SSH_USER` | Secret | SSH kullanıcısı (ör. `root`) |
+| `SSH_KEY` | Secret | Özel anahtarın tamamı (`-----BEGIN` … `END-----` satırları dahil); açık anahtarı sunucuda `~/.ssh/authorized_keys`'te olmalı |
+| `SSH_PORT` | Secret, isteğe bağlı | Boşsa `22` |
+| `DEPLOY_PATH` | Variable, isteğe bağlı | Reponun sunucudaki klasörü; boşsa `/root/gods-of-arena-deployment` |
+
+**`.env` değerleri:** adı `ENV_` ile başlayan her Secret ve Variable, öneki atılarak `.env`'e yazılır (`ENV_POSTGRES_PASSWORD` → `POSTGRES_PASSWORD`). Parolalar ve anahtarlar **Secret** (değeri sonradan görünmez, loglarda maskelenir), gizli olmayan ayarlar **Variable** (görülüp düzenlenebilir) olarak tanımlanır. Aynı ad ikisinde de varsa Secret kazanır. Yeni bir anahtar için workflow'a dokunmak gerekmez; yalnızca yeni bir `ENV_...` tanımlanır. Bir anahtarı `.env`'den çıkarmak için tanımı silinir.
+
+| Secret | Variable |
+|---|---|
+| `ENV_POSTGRES_PASSWORD`, `ENV_REDIS_PASSWORD`, `ENV_INTERNAL_API_TOKEN`, `ENV_GOA_ADMIN_USERNAME`, `ENV_GOA_ADMIN_EMAIL`, `ENV_GOA_ADMIN_PASSWORD`, `ENV_GEMINI_API_KEY` | `ENV_GOA_DOMAIN`, `ENV_GOA_ADMIN_DOMAIN`, `ENV_ACME_EMAIL`, `ENV_IMAGE_TAG`, `ENV_ARENA_ENTRY_FEE`, `ENV_ARENA_DRAW_REFUND_PERCENT`, `ENV_JAVA_MEM_LIMIT`, `ENV_HTTP_PORT`, `ENV_HTTPS_PORT` |
+
+Tam liste ve anlamları: [compose/.env.example](compose/.env.example). Sunucuda repo bir kez `git clone` ile o klasöre kurulmuş olmalıdır. Yeni değerlerin container'lara geçmesi için `docker compose up -d` gerekir (ana repodaki deploy işi bunu yapar).
+
+### İleride: k3s
+
+Hedef tek VM + k3s olunca iki yol var:
 
 1. **CI'dan SSH ile apply** (Tennis League'deki `appleboy/ssh-action` yaklaşımı): gods-of-arena'daki Imajlar workflow'una `needs: build-push` ile bir deploy işi eklenir. İş sunucuya SSH ile bağlanır, bu repoyu çeker, imaj etiketini yeni `sha-<commit>` yapar ve `kubectl apply -k overlays/prod` çalıştırır. Gerekenler: `SSH_HOST`, `SSH_USER`, `SSH_KEY` secret'ları ve sunucuda `kubectl` erişimi (k3s'te `/etc/rancher/k3s/k3s.yaml`). Tek VM için en az parçalı yol budur.
 2. **Argo CD (GitOps):** Kümeye Argo CD kurulur, bu repoyu izler. CI yeni etiketi bu repoya commit'ler (gods-of-arena'dan bu repoya yazma yetkili bir token gerekir), Argo CD kümeyi eşitler. Geçmiş ve geri alma Git'te tutulur, ama kümede ek bir bileşen ve Secret'lar için Sealed Secrets/SOPS gerekir.

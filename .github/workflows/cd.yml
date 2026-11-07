@@ -1,0 +1,83 @@
+# Sürekli dağıtım: main'e her push'ta (veya elle) sunucuya SSH ile bağlanır,
+# bu reponun sunucudaki kopyasında `git pull` yapar ve compose/.env dosyasını
+# ENV_ önekli secret ve variable'lardan yeniden yazar. Başka bir şey yapmaz
+# (imaj çekme / container yeniden başlatma yok).
+#
+# Bağlantı secret'ları (Settings → Secrets and variables → Actions → Secrets):
+#   SSH_HOST, SSH_USER, SSH_KEY   zorunlu
+#   SSH_PORT                      isteğe bağlı; boşsa 22
+# İsteğe bağlı variable: DEPLOY_PATH (boşsa /root/gods-of-arena-deployment)
+#
+# .env değerleri: adı ENV_ ile başlayan her secret ve variable, öneki atılarak
+# .env'e yazılır (ENV_POSTGRES_PASSWORD -> POSTGRES_PASSWORD). Parolalar Secret,
+# gizli olmayan ayarlar (alan adı, bellek, etiket) Variable olarak tanımlanır.
+# Aynı ad ikisinde de varsa secret kazanır. Yeni anahtar için workflow değişmez.
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Aynı anda iki dağıtım çalışmasın; yenisi gelirse eskisi beklesin.
+concurrency:
+  group: cd-prod
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    name: sunucuda git pull
+    runs-on: ubuntu-latest
+    steps:
+      # .env, ENV_ önekli variable ve secret'lardan üretilir (secret'lar aynı adı ezer).
+      # Değerler tek tırnakla yazılır (compose'ta $ ve # olduğu gibi kalır); içinde
+      # tek tırnak olan değer çift tırnakla, kaçışlı yazılır. Dosya SSH betiğine
+      # bozulmadan gitsin diye base64'e çevrilir; base64 hali de maskelenir.
+      - name: env dosyasını hazırla
+        id: envfile
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: |
+          content=$(jq -rn --argjson v "$VARS_JSON" --argjson s "$SECRETS_JSON" '
+            ($v + $s) | to_entries
+            | map(select(.key | startswith("ENV_")))
+            | sort_by(.key)
+            | map((.key | ltrimstr("ENV_")) + "=" + (
+                (.value | tostring) as $x
+                | if ($x | contains("'"'"'")) then
+                    "\"" + ($x | gsub("\\\\"; "\\\\") | gsub("\""; "\\\"") | gsub("\\$"; "\\$")) + "\""
+                  else "'"'"'" + $x + "'"'"'" end))
+            | join("\n")')
+          if [ -z "$content" ]; then
+            echo "::error::ENV_ ile başlayan hiçbir secret veya variable tanımlı değil."
+            exit 1
+          fi
+          echo "Yazılacak anahtarlar:"; printf '%s\n' "$content" | cut -d= -f1 | sed 's/^/  /'
+          b64=$(printf '%s\n' "$content" | base64 -w0)
+          echo "::add-mask::$b64"
+          echo "b64=$b64" >> "$GITHUB_OUTPUT"
+
+      - name: SSH ile pull
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          ENV_B64: ${{ steps.envfile.outputs.b64 }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/root/gods-of-arena-deployment' }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          envs: ENV_B64,DEPLOY_PATH
+          script_stop: true
+          script: |
+            set -eu
+            cd "$DEPLOY_PATH"
+            git pull --ff-only
+            umask 077
+            printf '%s' "$ENV_B64" | base64 -d > compose/.env.tmp
+            mv compose/.env.tmp compose/.env
+            echo "Güncel commit: $(git log -1 --format='%h %s')"
