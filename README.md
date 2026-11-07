@@ -176,7 +176,7 @@ Tanımlar repo ayarlarında yapılır: Settings → Secrets and variables → Ac
 
 | Secret | Variable |
 |---|---|
-| `ENV_POSTGRES_PASSWORD`, `ENV_REDIS_PASSWORD`, `ENV_INTERNAL_API_TOKEN`, `ENV_GOA_ADMIN_PASSWORD`, `ENV_GEMINI_API_KEY` | `ENV_GOA_DOMAIN`, `ENV_GOA_ADMIN_DOMAIN`, `ENV_ACME_EMAIL`, `ENV_GOA_ADMIN_USERNAME`, `ENV_GOA_ADMIN_EMAIL`, `ENV_IMAGE_TAG`, `ENV_ARENA_ENTRY_FEE`, `ENV_ARENA_DRAW_REFUND_PERCENT`, `ENV_JAVA_MEM_LIMIT`, `ENV_HTTP_PORT`, `ENV_HTTPS_PORT` |
+| `ENV_POSTGRES_PASSWORD`, `ENV_REDIS_PASSWORD`, `ENV_INTERNAL_API_TOKEN`, `ENV_GOA_ADMIN_USERNAME`, `ENV_GOA_ADMIN_EMAIL`, `ENV_GOA_ADMIN_PASSWORD`, `ENV_GEMINI_API_KEY` | `ENV_GOA_DOMAIN`, `ENV_GOA_ADMIN_DOMAIN`, `ENV_ACME_EMAIL`, `ENV_IMAGE_TAG`, `ENV_ARENA_ENTRY_FEE`, `ENV_ARENA_DRAW_REFUND_PERCENT`, `ENV_JAVA_MEM_LIMIT`, `ENV_HTTP_PORT`, `ENV_HTTPS_PORT` |
 
 Tam liste ve anlamları: [compose/.env.example](compose/.env.example). Sunucuda repo bir kez `git clone` ile o klasöre kurulmuş olmalıdır. Yeni değerlerin container'lara geçmesi için `docker compose up -d` gerekir (ana repodaki deploy işi bunu yapar).
 
