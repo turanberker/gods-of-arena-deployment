@@ -167,7 +167,7 @@ Repo ayarlarında (Settings → Secrets and variables → Actions) tanımlanacak
 | `SSH_HOST` | Secret | Sunucu adresi (IP veya alan adı) |
 | `SSH_USER` | Secret | SSH kullanıcısı (ör. `root`) |
 | `SSH_KEY` | Secret | Özel anahtarın tamamı (`-----BEGIN` … `END-----` satırları dahil); açık anahtarı sunucuda `~/.ssh/authorized_keys`'te olmalı |
-| `DEPLOY_ENV_FILE` | Secret | `compose/.env` dosyasının tam içeriği (`.env.example` biçiminde) |
+| `DEPLOY_ENV_FILE` | Secret **veya** Variable | `compose/.env` dosyasının tam içeriği (`.env.example` biçiminde). Secret içeriği sonradan görülemez; görüp düzenlemek istersen Variables sekmesine koy (secret da tanımlıysa secret kazanır). Variable'ı repoya okuma erişimi olan herkes görür, bu yüzden yalnızca özel repoda kullan. |
 | `SSH_PORT` | Secret, isteğe bağlı | Boşsa `22` |
 | `DEPLOY_PATH` | Variable, isteğe bağlı | Reponun sunucudaki klasörü; boşsa `/root/gods-of-arena-deployment` |
 

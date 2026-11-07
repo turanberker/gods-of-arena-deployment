@@ -7,7 +7,9 @@
 #   SSH_HOST         sunucu adresi (IP veya alan adı)
 #   SSH_USER         SSH kullanıcısı
 #   SSH_KEY          özel anahtarın tamamı (-----BEGIN ... END----- dahil)
-#   DEPLOY_ENV_FILE  compose/.env dosyasının tam içeriği
+#   DEPLOY_ENV_FILE  compose/.env dosyasının tam içeriği. Secret ya da Variable
+#                    olabilir; secret varsa o kullanılır. Variable seçilirse içerik
+#                    GitHub arayüzünden görülebilir ve düzenlenebilir.
 # İsteğe bağlı:
 #   SSH_PORT         secret; boşsa 22
 #   DEPLOY_PATH      variable (Variables sekmesi); boşsa /root/gods-of-arena-deployment
@@ -36,12 +38,18 @@ jobs:
       - name: env dosyasını hazırla
         id: envfile
         env:
-          DEPLOY_ENV_FILE: ${{ secrets.DEPLOY_ENV_FILE }}
+          DEPLOY_ENV_FILE: ${{ secrets.DEPLOY_ENV_FILE || vars.DEPLOY_ENV_FILE }}
         run: |
           if [ -z "$DEPLOY_ENV_FILE" ]; then
-            echo "::error::DEPLOY_ENV_FILE secret'ı tanımlı değil."
+            echo "::error::DEPLOY_ENV_FILE (secret veya variable) tanımlı değil."
             exit 1
           fi
+          # Variable olarak tanımlandıysa GitHub otomatik maskelemez; her satırın
+          # değeri loglarda maskelensin.
+          while IFS= read -r line; do
+            val=${line#*=}
+            if [ "$val" != "$line" ] && [ ${#val} -ge 4 ]; then echo "::add-mask::$val"; fi
+          done <<< "$DEPLOY_ENV_FILE"
           b64=$(printf '%s\n' "$DEPLOY_ENV_FILE" | base64 -w0)
           echo "::add-mask::$b64"
           echo "b64=$b64" >> "$GITHUB_OUTPUT"
