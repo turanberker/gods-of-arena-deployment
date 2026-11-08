@@ -193,6 +193,7 @@ services:
     image: berkerturan/goa-inventory:${IMAGE_TAG:-latest}
     environment:
       <<: *java-env
+      CRAFTING_URL: http://crafting:9003
     healthcheck:
       <<: *java-health
       test: ["CMD", "wget", "-qO-", "http://localhost:9004/actuator/health"]

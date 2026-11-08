@@ -87,6 +87,9 @@ spec:
             - name: INTERNAL_API_TOKEN
               valueFrom:
                 secretKeyRef: { name: goa-secrets, key: INTERNAL_API_TOKEN }
+            - name: CRAFTING_URL
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: CRAFTING_URL }
           startupProbe:
             httpGet: { path: /actuator/health, port: http }
             periodSeconds: 5
