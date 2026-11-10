@@ -84,7 +84,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-gods_of_arena}
       POSTGRES_USER: ${POSTGRES_USER:-goa}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env içinde zorunlu}
-    # Dışarı port açılmaz; yalnızca kapsayıcılar arası ağdan erişilir.
+    # Veritabanı istemcisi (DBeaver, psql) için dışarı açılır. Docker bu portu ufw'yi atlayarak açar;
+    # kısıtlama için README > Veritabanına dışarıdan erişim. Yalnızca SSH tüneli: POSTGRES_BIND=127.0.0.1
+    ports:
+      - "${POSTGRES_BIND:-0.0.0.0}:${POSTGRES_PUBLIC_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
