@@ -96,6 +96,9 @@ spec:
             - name: GOA_COOKIE_SECURE
               valueFrom:
                 configMapKeyRef: { name: goa-config, key: GOA_COOKIE_SECURE }
+            - name: GOA_COOKIE_REFRESH_PATH
+              valueFrom:
+                configMapKeyRef: { name: goa-config, key: GOA_COOKIE_REFRESH_PATH }
           startupProbe:
             httpGet: { path: /actuator/health, port: http }
             periodSeconds: 5

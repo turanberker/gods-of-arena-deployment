@@ -158,6 +158,8 @@ services:
       GOA_ADMIN_PASSWORD: ${GOA_ADMIN_PASSWORD:-}
       # HTTPS arkasında giriş çerezi yalnızca güvenli bağlantıda gönderilir.
       GOA_COOKIE_SECURE: ${GOA_COOKIE_SECURE:-true}
+      # Caddy servisleri /gw önekiyle yayınlar; refresh çerezi tarayıcının gördüğü yola bağlanmalı.
+      GOA_COOKIE_REFRESH_PATH: /gw/api/auth/refresh
     healthcheck:
       <<: *java-health
       test: ["CMD", "wget", "-qO-", "http://localhost:9001/actuator/health"]

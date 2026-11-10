@@ -25,6 +25,8 @@ data:
   GEMINI_MODEL: gemini-2.5-flash-lite
   # HTTPS arkasında true yapın.
   GOA_COOKIE_SECURE: "false"
+  # Gateway servisleri /gw önekiyle yayınlar; refresh çerezi tarayıcının gördüğü yola bağlanmalı.
+  GOA_COOKIE_REFRESH_PATH: /gw/api/auth/refresh
   # Go WebSocket Origin kontrolü: tarayıcının açtığı adresler.
   ALLOWED_ORIGINS: http://goa.local,http://admin.goa.local
   # Gateway arkasında X-Forwarded-* başlıkları dikkate alınır; kapanışta istekler tamamlanır.
