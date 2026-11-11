@@ -1,0 +1,19 @@
+# PostgreSQL'i küme dışından (DBeaver, psql) erişilebilir yapar: sunucunun 30432 portu -> postgres:5432.
+# k3s'te ServiceLB/kube-proxy NodePort'u tüm arayüzlerde açar; güvenlik duvarında 30432'yi yalnızca
+# kendi IP'ne aç (README > Veritabanına dışarıdan erişim). Kapatmak için kustomization.yaml'dan çıkar.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-external
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: gods-of-arena
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      nodePort: 30432

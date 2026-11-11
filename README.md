@@ -17,6 +17,7 @@ overlays/
 └── prod/                  # üretim: Secret, alan adları, imaj etiketleri
     ├── kustomization.yaml
     ├── secrets.env.example  # → secrets.env (git'e girmez)
+    ├── postgres-external.yaml  # PostgreSQL NodePort 30432 (dış erişim)
     └── patches/             # config.yaml (Origin, çerez), routes.yaml (alan adları), gateway-k3s.yaml
 k3s/traefik-config.yaml    # k3s Traefik'te Gateway API'yi açar (sunucuya bir kez kopyalanır)
 .github/workflows/validate.yml  # PR'da kustomize build + kubeconform
@@ -155,6 +156,12 @@ TLS henüz yok (Gateway yalnızca HTTP 80 dinliyor). Önerilen yol cert-manager 
 - **Go savaş sunucusu da çok kopyalıdır** (HPA en az 2, PDB, rolling update). Eşleşme kuyruğu, maç sahipliği (Redis kirası) ve kopyalar arası WebSocket aktarımı (Redis pub/sub) Redis'tedir; yapışkan oturum gerekmez. Kapanan veya çöken pod'un maçları diğer kopya tarafından hamle kaydından devralınır, istemci yeniden bağlanır. Redis artık battle için zorunludur (açılışta erişilemezse pod başlamaz). Ayrıntı: gods-of-arena reposunda `docs/backend-services/battle.md#çoklu-instance`.
 - **Kafka** (tek broker, KRaft) maç sonucu olaylarını taşır: Go battle outbox → `battle.match-finished.v1` → heroes (XP, yaralanma) ve inventory (arena ücret havuzu). Topic ilk yayında otomatik açılır. Kafka kapalıyken maçlar oynanır; olaylar battle'ın outbox tablosunda bekler ve Kafka gelince gönderilir.
 - **PostgreSQL ve Redis** tek kopyalı StatefulSet'tir. Üretimde yönetilen servis veya operatör (CloudNativePG, Redis Sentinel) önerilir; o durumda `base/infra` yerine `goa-config`'teki adresleri değiştirmek yeterlidir.
+
+## Veritabanına dışarıdan erişim
+
+PostgreSQL küme dışına `NodePort` ile açılır: `overlays/prod/postgres-external.yaml`, sunucunun **30432** portu → `postgres:5432`. Bağlantı: `<sunucu IP>:30432`, veritabanı `gods_of_arena`, kullanıcı `goa`. Redis ve Kafka açılmaz. Compose kurulumunda port `5432`'dir: [compose/README.md](compose/README.md#veritabanına-dışarıdan-erişim).
+
+Port internete açıktır, tek koruma paroladır. `POSTGRES_PASSWORD` uzun ve rastgele olmalı ve güvenlik duvarında yalnızca kendi IP'ne izin verilmeli (`sudo ufw allow from <IP'n> to any port 30432 proto tcp`; k3s'te kube-proxy kuralları ufw'den önce işleyebildiği için bulut sağlayıcısının güvenlik duvarı daha güvenilirdir). Gerekmediğinde `kustomization.yaml`'dan çıkarılıp `kubectl delete svc -n gods-of-arena postgres-external` ile kapatılır; alternatif `kubectl port-forward -n gods-of-arena svc/postgres 5432:5432` + SSH tüneli.
 
 ## Otomatik deploy (CD)
 

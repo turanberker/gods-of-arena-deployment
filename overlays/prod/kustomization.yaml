@@ -9,6 +9,8 @@ namespace: gods-of-arena
 
 resources:
   - ../../base
+  # PostgreSQL dışarıdan erişim (NodePort 30432).
+  - postgres-external.yaml
 
 # Parolalar ve anahtarlar tek Secret'ta toplanır; içerik değişince hash eki değişir ve pod'lar yeniden başlar.
 secretGenerator:
