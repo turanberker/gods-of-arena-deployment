@@ -148,6 +148,25 @@ docker image prune -f
 
 Sabit sürüm için `.env`'de `IMAGE_TAG=sha-<kısa-commit>` (Docker Hub'daki etiket); geri almak için eski etikete dönüp `docker compose up -d`.
 
+## Veritabanına dışarıdan erişim
+
+PostgreSQL, DBeaver/psql gibi bir istemciyle bağlanmak için sunucunun `5432` portundan dışarı açıktır (`.env`: `POSTGRES_BIND`, `POSTGRES_PUBLIC_PORT`). Bağlantı: sunucu IP'si veya `goa.<alan>`, port `5432`, veritabanı `gods_of_arena`, kullanıcı `goa`, parola `POSTGRES_PASSWORD`. Redis ve Kafka açılmaz.
+
+Değişiklik sonrası yalnızca postgres yeniden oluşturulur: `docker compose up -d postgres`.
+
+**Dikkat:** Docker yayınladığı portlar için iptables kuralını kendisi yazar, **ufw bu portu engellemez**. Yani port internete açıktır ve tek koruma paroladır. Bu yüzden:
+
+- `POSTGRES_PASSWORD` uzun ve rastgele olmalı (`openssl rand -base64 32 | tr -d '/+='`). Postgres parolası ilk açılışta yazılır; değiştirmek için `docker compose exec postgres psql -U goa -d gods_of_arena -c "ALTER USER goa PASSWORD '...'"` ve ardından `.env`.
+- Mümkünse yalnızca kendi IP'ne izin ver (`DOCKER-USER` zinciri ufw'den bağımsız çalışır; `203.0.113.10` yerine kendi IP'n, `eth0` yerine dış ağ arayüzü):
+
+  ```bash
+  sudo iptables -I DOCKER-USER -i eth0 -p tcp -m conntrack --ctorigdstport 5432 ! -s 203.0.113.10 -j DROP
+  sudo apt install iptables-persistent && sudo netfilter-persistent save   # yeniden başlatmada kalsın
+  ```
+
+  Bulut sağlayıcısının güvenlik duvarı varsa 5432'yi orada yalnızca kendi IP'ne açmak da aynı işi görür.
+- En güvenlisi portu hiç açmamak: `.env`'de `POSTGRES_BIND=127.0.0.1` yap ve SSH tüneliyle bağlan (DBeaver'da "SSH" sekmesi veya `ssh -L 5432:127.0.0.1:5432 root@<sunucu>` sonra `localhost:5432`).
+
 ## Yedek
 
 ```bash
