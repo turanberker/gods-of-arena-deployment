@@ -23,6 +23,10 @@ permissions:
   contents: read
 
 # Aynı anda iki dağıtım çalışmasın; yenisi gelirse eskisi beklesin.
+# Bu grup yalnızca bu repoyu kapsar. gods-of-arena'daki Imajlar workflow'unun deploy
+# işi de sunucuda aynı klasörde git pull yapar; iki repo arası yarışı sunucudaki
+# flock kilidi (/tmp/goa-deploy.lock) önler (2026-11-12: iki pull aynı anda çalışınca
+# "cannot lock ref 'refs/remotes/origin/main'" hatası alındı).
 concurrency:
   group: cd-prod
   cancel-in-progress: false
@@ -73,8 +77,13 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           envs: ENV_B64,DEPLOY_PATH
           script_stop: true
+          # Kilit beklemesi (en çok 15 dk) için süre uzun tutuldu.
+          command_timeout: 20m
           script: |
             set -eu
+            # gods-of-arena Imajlar deploy işiyle ortak kilit: aynı anda tek git pull / compose.
+            exec 9>/tmp/goa-deploy.lock
+            flock -w 900 9 || { echo "Dağıtım kilidi 15 dk içinde alınamadı" >&2; exit 1; }
             cd "$DEPLOY_PATH"
             git pull --ff-only
             umask 077
