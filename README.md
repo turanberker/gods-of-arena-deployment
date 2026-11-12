@@ -167,6 +167,8 @@ Port internete açıktır, tek koruma paroladır. `POSTGRES_PASSWORD` uzun ve ra
 
 `.github/workflows/cd.yml`: `main`'e her push'ta (veya Actions → **CD** → *Run workflow* ile elle) sunucuya SSH ile bağlanır, bu reponun sunucudaki kopyasında `git pull --ff-only` yapar ve `compose/.env` dosyasını GitHub'daki `ENV_` önekli değerlerden yeniden yazar (izin 600). Başka bir şey yapmaz: imaj çekme ve container yeniden başlatma yoktur (imajlar güncellenince gods-of-arena'daki Imajlar workflow'unun deploy işi bunu yapar).
 
+İki workflow da sunucuda aynı klasörde çalıştığı için betikler `/tmp/goa-deploy.lock` üzerinden `flock` ile ortak kilit alır (en çok 15 dk bekler); böylece iki `git pull` aynı anda çalışıp `cannot lock ref` hatası vermez.
+
 Tanımlar repo ayarlarında yapılır: Settings → Secrets and variables → Actions.
 
 **Bağlantı**
