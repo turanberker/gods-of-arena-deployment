@@ -142,12 +142,14 @@ services:
       KAFKA_HEAP_OPTS: -Xms256m -Xmx256m
     volumes:
       - kafka_data:/var/lib/kafka/data
+    # Port kontrolü: eski kontrol (kafka-broker-api-versions.sh) her seferinde ikinci bir JVM açıyordu;
+    # küçük sunucuda 10 sn'yi aşıp Kafka'yı "unhealthy" gösteriyor ve deploy'u durduruyordu.
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
+      test: ["CMD-SHELL", "nc -z localhost 9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     logging: *logging
 
   # ── Java servisleri ──────────────────────────────────────────
